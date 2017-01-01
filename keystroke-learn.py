@@ -14,140 +14,87 @@ from os.path import basename
 
 
 passwd = '.tie5Roanl'
-
-userName = ''
-time_between_ups = []
-time_between_downs = []
-
-def getColumns(passwd):
-    columns = []
-    key = ""
-    key2 = ""
-    pass_len=len(passwd)
-    for i in range(pass_len):
-        if passwd[i] == '.':
-            key = 'period'
-        else:
-            key = passwd[i]
-
-        if i != pass_len - 1:
-            key2 = passwd[i+1]
-        else:
-            key2 = 'Return'
-
-        columns.append('H.' + key)
-        columns.append('DD.' + key + '.' + key2)
-        columns.append('UD.' + key + '.' + key2)
-
-    return columns
+currentUser=""
+#time_between_ups = []
+#time_between_downs = []
 
 
-'''
-def getPathForFiles():
-    current_path=os.path.abspath(os.curdir)
-    iniFileName = os.path.join(current_path, 'keystrike.ini')
-    textFile = open(iniFileName,'r')
-    path = re.findall(r'path=(.*)', textFile.read())
-    return path[0].strip()
-'''
+class PasswordCollectionManager(object):
+    def __init__(self):
+        pass
 
-def get_users():
-    files = os.listdir(os.path.join("accounts"))
-    files = filter(lambda x: x.endswith('.csv'),files)
-    user_res = []
-    if files!=[]:
-        for f in files:
-            user_res.append(basename(f).split('.')[0])
-    return (user_res)
+    def getColumns(passwd):
+        columns = []
+        key = ""
+        key2 = ""
+        pass_len=len(passwd)
 
+        for i in range(pass_len):
+            key = '.' if passwd[i] == '.' else passwd[i]
+            key2 = passwd[i+1] if i != pass_len - 1 else 'Return'
+            columns.append('H.' + key)
+            columns.append('DD.' + key + '.' + key2)
+            columns.append('UD.' + key + '.' + key2)
+        return columns
 
-def getUserFileWriteSession():
-    global userName
-    userName= askstring("Користувач","Задайте ім\'я користувача")
-    global userName_v
-    userName_v.set(userName)
-    global passwd
+    def userRecordData(self, eventList):
+        global currentUser
+        global passwd
+        userFilePath = (os.path.join("accounts", currentUser + '.csv'))
+        #Read File to Grab Sessions
+        df = pd.read_csv(userFilePath,header=0)
 
-    userFileName = (userName + ".csv")
+        columns=self.getColumns(passwd)
 
-    if os.path.exists(os.path.join("accounts", userFileName)):
-        userFile = (os.path.join("accounts", userFileName))
-    else:
-        print("No File Exists! Creating New User")
-        if os.path.exists(os.path.join("accounts", userFileName)):
-            showinfo("Username exists! Load it or choose different name")
-        else:
-            userFile = (os.path.join("accounts", userFileName))
-            writeFile = open(userFile, "w")
-            headerwriter=csv.writer(writeFile, delimiter=',')
-            headerwriter.writerow(getColumns(passwd))
-            writeFile.close()
-            #showinfo("User Successfully Created", userFile)
-    print("Your account has been created: ", userFile)
+        key_transform = lambda x: x if x =='Return' else str.upper(x)
+        row={}
+        for col in columns:
+            if col[0] == 'H':
+                action, key1  = col.split('.')
+                key1 = key_transform(key1)
+            else:
+                action, key1, key2 = col.split('.')
+                key1 = key_transform(key1)
+                key2 = key_transform(key2)
 
-    change_listbox(get_users())
+            if action == 'H':
+                time1 = eventList[key1]['U']-eventList[key1]['D']
+            if action == 'DD':
+                time1 =  eventList[key2]['D']-eventList[key1]['D']
+            if action == 'UD':
+                time1 =  eventList[key2]['D']-eventList[key1]['U']
 
-def userRecordData(eventList):
-    global userName
-    global passwd
-    userFilePath = (os.path.join("accounts", userName + '.csv'))
-    #Read File to Grab Sessions
-    df = pd.read_csv(userFilePath,header=0)
+            row[col]=time1
 
-    columns=getColumns(passwd)
+        df = df.append(row, ignore_index=True)
+        df.to_csv(userFilePath, index=False,)
 
-    key_transform = lambda x: x if x =='Return' else str.upper(x)
-    row={}
-    for col in columns:
-        if col[0] == 'H':
-            action, key1  = col.split('.')
-            key1 = key_transform(key1)
-        else:
-            action, key1, key2 = col.split('.')
-            key1 = key_transform(key1)
-            key2 = key_transform(key2)
+    def password_collect(self):
+        global pass_entry
+        global status_v
+        global currentUser
+        global hookManager
 
+        if currentUser == '': return
 
-        if action == 'H':
-            time1 = eventList[key1]['U']-eventList[key1]['D']
-        if action == 'DD':
-            time1 =  eventList[key2]['D']-eventList[key1]['D']
-        if action == 'UD':
-            time1 =  eventList[key2]['D']-eventList[key1]['U']
+        keyLogger = KeyLogger(self.userRecordData)
+        hookManager = pyHook.HookManager()
+        hookManager.KeyDown = keyLogger.keyDownEvent
+        hookManager.KeyUp = keyLogger.keyUpEvent
+        hookManager.HookKeyboard()
 
-        row[col]=time1
-
-    df = df.append(row, ignore_index=True)
-    df.to_csv(userFilePath, index=False,)
-
-
-
-
-def usernamePasswordInput():
-    global pass_entry
-    global status_v
-    global hookManager
-    global userName
-    if userName =='': return
-
-
-    keyLogger = KeyLogger()
-    hookManager = pyHook.HookManager()
-    hookManager.KeyDown = keyLogger.keyDownEvent
-    hookManager.KeyUp = keyLogger.keyUpEvent
-    hookManager.HookKeyboard()
-
-    pass_entry.state(['!disabled'])
-    pass_entry.focus()
-    passwd_v.set('')
-    status_v.set('')
+        pass_entry.state(['!disabled'])
+        pass_entry.focus()
+        passwd_v.set('')
+        status_v.set('')
 
 
 class KeyLogger(object):
-    def __init__(self):
+    def __init__(self, funct):
         self.enterPressed = False
         self.eventList = {}
         self.passwd = ''
+        self.cb_function=funct
 
     def keyDownEvent(self, event):
         self.storeEvent(event.Key,"D", event)
@@ -187,7 +134,7 @@ class KeyLogger(object):
                 hookManager.UnhookKeyboard()
                 start_button.focus()
                 pass_entry.state(['disabled'])
-                userRecordData(self.eventList)
+                self.cb_function(self.eventList)
             else:
                 print(passwd_v.get())
                 status_v.set("Невірний пароль!")
@@ -195,6 +142,59 @@ class KeyLogger(object):
                 passwd_v.set('')
                 hookManager.UnhookKeyboard()
                 start_button.focus()
+
+
+class UserManager(object):
+
+    def __init__(self):
+        self.users = []
+        self.get_users()
+
+    #отримуємо список користувачів
+    def get_users(self):
+        self.users = []
+        files = os.listdir(os.path.join("accounts"))
+        files = filter(lambda x: x.endswith('.csv'),files)
+        if files!=[]:
+            for f in files:
+                    self.users.append(basename(f).split('.')[0])
+
+    def change_user(self, selectedName):
+        global userName_v
+        global currentUser
+        currentUser = selectedName
+        userName_v.set(selectedName)
+
+    def getUserFileWriteSession(self):
+        userName= askstring("Користувач","Задайте ім\'я користувача")
+        if userName=='': return
+
+        global userName_v
+        global currentUser
+        currentUser = userName
+        userName_v.set(userName)
+
+        userFileName = (userName + ".csv")
+
+        if os.path.exists(os.path.join("accounts", userFileName)):
+            userFile = (os.path.join("accounts", userFileName))
+        else:
+            print("No File Exists! Creating New User")
+            if os.path.exists(os.path.join("accounts", userFileName)):
+                showinfo("Username exists! Load it or choose different name")
+            else:
+                userFile = (os.path.join("accounts", userFileName))
+                writeFile = open(userFile, "w")
+                headerwriter=csv.writer(writeFile, delimiter=',')
+                headerwriter.writerow(PasswordCollectionManager.getColumns(passwd))
+                writeFile.close()
+                #showinfo("User Successfully Created", userFile)
+            print("Your account has been created: ", userFile)
+
+        self.get_users()
+
+        change_listbox(self.users)
+
 
 
 
@@ -205,22 +205,19 @@ def change_listbox(users):
     for  user in users:
         listbox.insert(END,user)
 
-def change_user(selectedName):
-    global userName
-    global userName_v
-    userName = selectedName
-    userName_v.set(selectedName)
 
 
-def onselect(evt):
+def on_user_select(evt):
     w = evt.widget
     index = int(w.curselection()[0])
     selectedName = w.get(index)
-    change_user(selectedName)
+    um.change_user(selectedName)
 
 
 
 
+um = UserManager()
+pc = PasswordCollectionManager()
 
 window = Tk()
 window.title('Keytroke capture')
@@ -236,7 +233,7 @@ ttk.Label(mainframe,text = 'Користувач:').grid(column=1, row=1, sticky
 
 ttk.Label(mainframe,textvariable = userName_v).grid(column=2, row=1, sticky=W)
 
-ttk.Button(mainframe,text='Додати користувача',command = (lambda: getUserFileWriteSession())).grid(column=3, row=1, sticky=E)
+ttk.Button(mainframe,text='Додати користувача',command = (lambda: um.getUserFileWriteSession())).grid(column=3, row=1, sticky=E)
 
 
 listbox = Listbox(mainframe,selectmode=SINGLE, height=10)
@@ -246,12 +243,12 @@ scrollbar.grid(column=2, row=3, sticky=(E,W,N,S))
 scrollbar.config(command=listbox.yview)
 listbox.config(yscrollcommand=scrollbar.set)
 
-change_listbox(get_users())
+change_listbox(um.users)
 
-listbox.bind('<<ListboxSelect>>', onselect)
+listbox.bind('<<ListboxSelect>>', on_user_select)
 
 ttk.Label(mainframe, text='Введіть пароль: ' + passwd).grid(column=2, row=4, sticky=(W,E))
-start_button = ttk.Button(mainframe,text='Розпочати введення паролю',command = (lambda: usernamePasswordInput()))
+start_button = ttk.Button(mainframe,text='Розпочати введення паролю',command = (lambda: pc.password_collect()))
 start_button.grid(column=2, row=5, sticky=(W, E))
 
 
