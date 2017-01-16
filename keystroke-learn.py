@@ -1,154 +1,22 @@
 import os
-import re
-import json
-import numpy
 from tkinter import *
 from tkinter import ttk
 from tkinter.simpledialog import askstring
 from tkinter.messagebox import showinfo
-import pyHook
-import pythoncom
-import pandas as pd
-import csv
 from os.path import basename
+import csv
 
+from passmanager import PasswordCollectionManager
 
-passwd = '.tie5Roanl'
-currentUser=""
-#time_between_ups = []
-#time_between_downs = []
+from anomalydetector import AnomalyDetector
 
-
-class PasswordCollectionManager(object):
-    def __init__(self):
-        pass
-
-    def getColumns(passwd):
-        columns = []
-        key = ""
-        key2 = ""
-        pass_len=len(passwd)
-
-        for i in range(pass_len):
-            key = '.' if passwd[i] == '.' else passwd[i]
-            key2 = passwd[i+1] if i != pass_len - 1 else 'Return'
-            columns.append('H.' + key)
-            columns.append('DD.' + key + '.' + key2)
-            columns.append('UD.' + key + '.' + key2)
-        return columns
-
-    def userRecordData(self, eventList):
-        global currentUser
-        global passwd
-        userFilePath = (os.path.join("accounts", currentUser + '.csv'))
-        #Read File to Grab Sessions
-        df = pd.read_csv(userFilePath,header=0)
-
-        columns=self.getColumns(passwd)
-
-        key_transform = lambda x: x if x =='Return' else str.upper(x)
-        row={}
-        for col in columns:
-            if col[0] == 'H':
-                action, key1  = col.split('.')
-                key1 = key_transform(key1)
-            else:
-                action, key1, key2 = col.split('.')
-                key1 = key_transform(key1)
-                key2 = key_transform(key2)
-
-            if action == 'H':
-                time1 = eventList[key1]['U']-eventList[key1]['D']
-            if action == 'DD':
-                time1 =  eventList[key2]['D']-eventList[key1]['D']
-            if action == 'UD':
-                time1 =  eventList[key2]['D']-eventList[key1]['U']
-
-            row[col]=time1
-
-        df = df.append(row, ignore_index=True)
-        df.to_csv(userFilePath, index=False,)
-
-    def password_collect(self):
-        global pass_entry
-        global status_v
-        global currentUser
-        global hookManager
-
-        if currentUser == '': return
-
-        keyLogger = KeyLogger(self.userRecordData)
-        hookManager = pyHook.HookManager()
-        hookManager.KeyDown = keyLogger.keyDownEvent
-        hookManager.KeyUp = keyLogger.keyUpEvent
-        hookManager.HookKeyboard()
-
-        pass_entry.state(['!disabled'])
-        pass_entry.focus()
-        passwd_v.set('')
-        status_v.set('')
-
-
-class KeyLogger(object):
-    def __init__(self, funct):
-        self.enterPressed = False
-        self.eventList = {}
-        self.passwd = ''
-        self.cb_function=funct
-
-    def keyDownEvent(self, event):
-        self.storeEvent(event.Key,"D", event)
-        return True
-
-    def keyUpEvent(self, event):
-        self.storeEvent(event.Key,"U", event)
-        return True
-
-
-    def mainLoop(self):
-            while not self.enterPressed:
-                pythoncom.PumpWaitingMessages()
-
-    def storeEvent(self, key, activity, event):
-        global start_button
-        global hookManager
-        global status_v
-        global passwd_v
-
-        keystrokeTime = int(event.Time)
-        if key == 'Oem_Period':
-            key = 'PERIOD'
-
-        if key in self.eventList:
-            self.eventList[key].update({activity: int(keystrokeTime)})
-        else:
-            self.eventList[key] = {activity: int(keystrokeTime)}
-
-        # Chosen to use Escape key (ESC) due to input using a similar method
-        # Enter Key - KeyCode: 13 Ascii: 13 ScanCode: 28 - ESC = 27 @ Ascii
-        if event.Ascii == 13:
-            self.enterPressed = True
-            if passwd_v.get() == passwd:
-                status_v.set("OK")
-                passwd_v.set('')
-                hookManager.UnhookKeyboard()
-                start_button.focus()
-                pass_entry.state(['disabled'])
-                self.cb_function(self.eventList)
-            else:
-                print(passwd_v.get())
-                status_v.set("Невірний пароль!")
-                pass_entry.state(['disabled'])
-                passwd_v.set('')
-                hookManager.UnhookKeyboard()
-                start_button.focus()
-
+masterpasswd = '.tie5Roanl'
 
 class UserManager(object):
-
-    def __init__(self):
+    def __init__(self,passwd):
         self.users = []
         self.get_users()
+        self.passwd=passwd
 
     #отримуємо список користувачів
     def get_users(self):
@@ -157,22 +25,12 @@ class UserManager(object):
         files = filter(lambda x: x.endswith('.csv'),files)
         if files!=[]:
             for f in files:
-                    self.users.append(basename(f).split('.')[0])
-
-    def change_user(self, selectedName):
-        global userName_v
-        global currentUser
-        currentUser = selectedName
-        userName_v.set(selectedName)
+                self.users.append(basename(f).split('.')[0])
+        return self.users
 
     def getUserFileWriteSession(self):
         userName= askstring("Користувач","Задайте ім\'я користувача")
         if userName=='': return
-
-        global userName_v
-        global currentUser
-        currentUser = userName
-        userName_v.set(userName)
 
         userFileName = (userName + ".csv")
 
@@ -186,87 +44,104 @@ class UserManager(object):
                 userFile = (os.path.join("accounts", userFileName))
                 writeFile = open(userFile, "w")
                 headerwriter=csv.writer(writeFile, delimiter=',')
-                headerwriter.writerow(PasswordCollectionManager.getColumns(passwd))
+                headerwriter.writerow(PasswordCollectionManager.getColumns(None, passwd = self.passwd))
                 writeFile.close()
                 #showinfo("User Successfully Created", userFile)
             print("Your account has been created: ", userFile)
 
-        self.get_users()
+        return userName
 
-        change_listbox(self.users)
+class KL_GUI:
+    def __init__(self, master, passwd):
+        self.master = master
+        master.title("Keytroke capture")
+        self.passwd = passwd
+        self.currentUser = ""
+        self.um = UserManager(self.passwd)
+        self.pc = PasswordCollectionManager(self.passwd,self)
 
+        self.mainframe = ttk.Frame(master, padding="3 3 12 12")
+        self.mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
+        self.mainframe.columnconfigure(0, weight=1)
+        self.mainframe.rowconfigure(0, weight=1)
 
+        self.userName_v = StringVar()
+        ttk.Label(self.mainframe,text = 'Користувач:').grid(column=1, row=1, sticky=E)
+        ttk.Label(self.mainframe,textvariable = self.userName_v).grid(column=2, row=1, sticky=W)
+        ttk.Button(self.mainframe,text='Додати користувача',command = (lambda: self.add_user())).grid(column=3, row=1, sticky=E)
 
+        self.listbox = Listbox(self.mainframe,selectmode=SINGLE, height=10)
+        self.listbox.grid(column=2,row=3, sticky=(E,W))
+        self.scrollbar = Scrollbar(self.mainframe, orient=VERTICAL)
+        self.scrollbar.grid(column=2, row=3, sticky=(E,W,N,S))
+        self.scrollbar.config(command=self.listbox.yview)
+        self.listbox.config(yscrollcommand=self.scrollbar.set)
 
+        self.change_listbox(self.um.get_users())
 
-def change_listbox(users):
-    global listbox
-    listbox.delete(0, END)
-    for  user in users:
-        listbox.insert(END,user)
+        self.listbox.bind('<<ListboxSelect>>', self.on_user_select)
 
+        ttk.Label(self.mainframe, text='Введіть пароль: ' + passwd).grid(column=2, row=4, sticky=(W,E))
 
+        self.start_button = ttk.Button(self.mainframe,text='Розпочати введення паролю',command = (lambda: self.pass_collect()))
+        self.start_button.grid(column=2, row=5, sticky=(W, E))
 
-def on_user_select(evt):
-    w = evt.widget
-    index = int(w.curselection()[0])
-    selectedName = w.get(index)
-    um.change_user(selectedName)
+        self.passwd_v = StringVar()
+        self.pass_entry = ttk.Entry(self.mainframe, width=7, textvariable=self.passwd_v, state='disabled')
+        self.pass_entry.grid(column=2, row=6, sticky=(W, E))
 
+        self.status_v = StringVar()
+        ttk.Label(self.mainframe, textvariable=self.status_v).grid(column=3, row=6, sticky=(W,E))
 
+        self.fit_button = ttk.Button(self.mainframe,text='Навчання детектора',command = (lambda: self.fit_detector()))
+        self.fit_button.grid(column=2, row=7, sticky=(W, E))
 
-
-um = UserManager()
-pc = PasswordCollectionManager()
-
-window = Tk()
-window.title('Keytroke capture')
-
-mainframe = ttk.Frame(window, padding="3 3 12 12")
-mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
-mainframe.columnconfigure(0, weight=1)
-mainframe.rowconfigure(0, weight=1)
-
-
-userName_v = StringVar()
-ttk.Label(mainframe,text = 'Користувач:').grid(column=1, row=1, sticky=E)
-
-ttk.Label(mainframe,textvariable = userName_v).grid(column=2, row=1, sticky=W)
-
-ttk.Button(mainframe,text='Додати користувача',command = (lambda: um.getUserFileWriteSession())).grid(column=3, row=1, sticky=E)
-
-
-listbox = Listbox(mainframe,selectmode=SINGLE, height=10)
-listbox.grid(column=2,row=3, sticky=(E,W))
-scrollbar = Scrollbar(mainframe, orient=VERTICAL)
-scrollbar.grid(column=2, row=3, sticky=(E,W,N,S))
-scrollbar.config(command=listbox.yview)
-listbox.config(yscrollcommand=scrollbar.set)
-
-change_listbox(um.users)
-
-listbox.bind('<<ListboxSelect>>', on_user_select)
-
-ttk.Label(mainframe, text='Введіть пароль: ' + passwd).grid(column=2, row=4, sticky=(W,E))
-start_button = ttk.Button(mainframe,text='Розпочати введення паролю',command = (lambda: pc.password_collect()))
-start_button.grid(column=2, row=5, sticky=(W, E))
+        self.status2_v = StringVar()
+        ttk.Label(self.mainframe, textvariable=self.status2_v).grid(column=3, row=7, sticky=(W,E))
 
 
-
-passwd_v = StringVar()
-pass_entry = ttk.Entry(mainframe, width=7, textvariable=passwd_v, state='disabled')
-pass_entry.grid(column=2, row=6, sticky=(W, E))
+        ttk.Button(self.mainframe,text='Quit',command=(lambda: self.master.quit())).grid(column=3, row=8, sticky=E)
 
 
-status_v = StringVar()
-ttk.Label(mainframe, textvariable=status_v).grid(column=3, row=6, sticky=(W,E))
+        for child in self.mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
+
+    def add_user(self):
+        self.currentUser = self.um.getUserFileWriteSession()
+        self.change_listbox(self.um.get_users())
+        self.userName_v.set(self.currentUser)
+        self.pc.change_user(self.currentUser)
 
 
-ttk.Button(mainframe,text='Quit',command=(lambda: window.quit())).grid(column=3, row=8, sticky=E)
+    def on_user_select(self, evt):
+        w = evt.widget
+        index = int(w.curselection()[0])
+        selectedName = w.get(index)
+        self.userName_v.set(selectedName)
+        self.pc.change_user(selectedName)
+        self.currentUser = selectedName
+
+    def pass_collect(self):
+        self.pass_entry.state(['!disabled'])
+        self.pass_entry.focus()
+        self.passwd_v.set('')
+        self.status_v.set('')
+        self.pc.password_collect()
+
+    def fit_detector(self):
+        self.mainframe.config(cursor="wait")
+        self.mainframe.update()
+        self.status2_v.set("")
+        ad = AnomalyDetector(self.currentUser,'SVM')
+        ad.fit()
+        self.status2_v.set("OK")
+        self.mainframe.config(cursor="")
 
 
-for child in mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
+    def change_listbox(self, users):
+        self.listbox.delete(0, END)
+        for user in users:
+            self.listbox.insert(END,user)
 
-
-
-window.mainloop()
+root = Tk()
+my_gui = KL_GUI(root, masterpasswd)
+root.mainloop()
