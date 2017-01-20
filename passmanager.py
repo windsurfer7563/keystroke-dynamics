@@ -57,11 +57,11 @@ class PasswordCollectionManager(object):
         return row
 
     def userRecordData(self, eventList):
+
         if self.wnd.passwd_v.get() != self.passwd:
             self.wnd.status_v.set("Невірний пароль!")
             self.wnd.pass_entry.state(['disabled'])
             self.wnd.passwd_v.set('')
-            hookManager.UnhookKeyboard()
             self.wnd.start_button.focus()
         else:
             #print(eventList)
@@ -76,7 +76,6 @@ class PasswordCollectionManager(object):
 
             self.wnd.status_v.set("OK")
             self.wnd.passwd_v.set('')
-            hookManager.UnhookKeyboard()
             self.wnd.start_button.focus()
             self.wnd.pass_entry.state(['disabled'])
 
@@ -86,7 +85,6 @@ class PasswordCollectionManager(object):
             print(self.wnd.passwd_v.get())
             self.wnd.status_v.set("Невірний пароль!")
             self.wnd.passwd_v.set('')
-            hookManager.UnhookKeyboard()
         else:
             #print(eventList)
             self.wnd.passwd_v.set('')
@@ -97,7 +95,6 @@ class PasswordCollectionManager(object):
             predict = ad.predict(data)
             self.wnd.status_v.set(predict)
             self.wnd.passwd_v.set('')
-            hookManager.UnhookKeyboard()
             self.wnd.username_entry.focus()
 
     def password_collect(self):
@@ -159,4 +156,5 @@ class KeyLogger(object):
         # Enter Key - KeyCode: 13 Ascii: 13 ScanCode: 28 - ESC = 27 @ Ascii
         if event.Ascii == 13:
             self.enterPressed = True
+            hookManager.UnhookKeyboard()
             self.cb_function(self.eventList)

@@ -28,9 +28,8 @@ class UserManager(object):
                 self.users.append(basename(f).split('.')[0])
         return self.users
 
-    def getUserFileWriteSession(self):
-        userName= askstring("Користувач","Задайте ім\'я користувача")
-        if userName=='': return
+    def getUserFileWriteSession(self, userName):
+        if userName=='': return False
 
         userFileName = (userName + ".csv")
 
@@ -49,12 +48,11 @@ class UserManager(object):
                 #showinfo("User Successfully Created", userFile)
             print("Your account has been created: ", userFile)
 
-        return userName
+        return True
 
 class KL_GUI:
     def __init__(self, master, passwd):
         self.master = master
-        master.title("Keytroke capture")
         self.passwd = passwd
         self.currentUser = ""
         self.um = UserManager(self.passwd)
@@ -106,10 +104,11 @@ class KL_GUI:
         for child in self.mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 
     def add_user(self):
-        self.currentUser = self.um.getUserFileWriteSession()
-        self.change_listbox(self.um.get_users())
-        self.userName_v.set(self.currentUser)
-        self.pc.change_user(self.currentUser)
+        currentUser = askstring("Користувач","Задайте ім\'я користувача")
+        if self.um.getUserFileWriteSession(currentUser):
+            self.change_listbox(self.um.get_users())
+            self.userName_v.set(self.currentUser)
+            self.pc.change_user(self.currentUser)
 
 
     def on_user_select(self, evt):
@@ -142,6 +141,8 @@ class KL_GUI:
         for user in users:
             self.listbox.insert(END,user)
 
-root = Tk()
-my_gui = KL_GUI(root, masterpasswd)
-root.mainloop()
+if __name__ == '__main__':
+    root = Tk()
+    root.title("Keytroke capture")
+    my_gui = KL_GUI(root, masterpasswd)
+    root.mainloop()
