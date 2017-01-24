@@ -59,7 +59,7 @@ class PasswordCollectionManager(object):
     def userRecordData(self, eventList):
 
         if self.wnd.passwd_v.get() != self.passwd:
-            self.wnd.status_v.set("Невірний пароль!")
+            self.wnd.status_v.set("Пароль введено з помилкою!")
             self.wnd.pass_entry.state(['disabled'])
             self.wnd.passwd_v.set('')
             self.wnd.start_button.focus()
@@ -85,17 +85,23 @@ class PasswordCollectionManager(object):
             print(self.wnd.passwd_v.get())
             self.wnd.status_v.set("Невірний пароль!")
             self.wnd.passwd_v.set('')
+            #self.wnd.username_entry.focus()
+            #self.wnd.pass_entry.focus()
+            #self.password_evaluate()
+            #self.wnd.username_entry.focus()
         else:
             #print(eventList)
             self.wnd.passwd_v.set('')
             row=self.eventlist_transform(eventList)
             data = np.array(row, dtype=np.float)
-            userFilePath =  (os.path.join("accounts", self.user + '_' + 'SVM'+'.dat'))
+            userFilePath =  (os.path.join("accounts", self.user + '_' + 'NN'+'.dat'))
             ad=pickle.load(open(userFilePath,"rb"))
             predict = ad.predict(data)
             self.wnd.status_v.set(predict)
             self.wnd.passwd_v.set('')
-            self.wnd.username_entry.focus()
+            #self.password_evaluate()
+            #self.wnd.pass_entry.focus()
+            #self.wnd.username_entry.focus()
 
     def password_collect(self):
         global hookManager
@@ -137,8 +143,9 @@ class KeyLogger(object):
 
 
     def mainLoop(self):
-            while not self.enterPressed:
-                pythoncom.PumpWaitingMessages()
+        pythoncom.PumpWaitingMessages()
+            #while not self.enterPressed:
+            #    pythoncom.PumpWaitingMessages()
 
     def storeEvent(self, key, activity, event):
         global hookManager
@@ -154,7 +161,9 @@ class KeyLogger(object):
 
         # Chosen to use Escape key (ESC) due to input using a similar method
         # Enter Key - KeyCode: 13 Ascii: 13 ScanCode: 28 - ESC = 27 @ Ascii
-        if event.Ascii == 13:
+        if event.Ascii == 13 and activity == "D":
             self.enterPressed = True
-            hookManager.UnhookKeyboard()
-            self.cb_function(self.eventList)
+            #hookManager.UnhookKeyboard()
+            events = self.eventList
+            self.eventList={}
+            self.cb_function(events)

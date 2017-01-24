@@ -130,7 +130,7 @@ class KL_GUI:
         self.mainframe.config(cursor="wait")
         self.mainframe.update()
         self.status2_v.set("")
-        ad = AnomalyDetector(self.currentUser,'SVM')
+        ad = AnomalyDetector(self.currentUser,'NN')
         ad.fit()
         self.status2_v.set("OK")
         self.mainframe.config(cursor="")
