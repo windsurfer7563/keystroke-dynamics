@@ -62,7 +62,7 @@ class AnomalyDetector(object):
                   dist_train.append(chebyshev(predicted[i],X_train[i]))
 
             print("Max Dist Train: {0:.4f}".format(max(dist_train)))
-            self.treshold=np.mean(dist_train) + 3 * np.std(dist_train)
+            self.treshold=np.mean(dist_train) + 4 * np.std(dist_train)
             print('Treshold: %.3f' % self.treshold)
 
         #serialization

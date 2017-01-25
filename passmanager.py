@@ -48,12 +48,15 @@ class PasswordCollectionManager(object):
 
         return columns
 
+
     def eventlist_transform(self,eventList):
         #print(eventList)
         columns = self.getColumns(self.passwd)
         #print(columns)
         key_transform = lambda x: x if x =='Return' else str.upper(x)
         row=[]
+        #створюємо список всіх часів для того щоб "якщо час більша за три стд відхилення - усереднюємо час"
+        times = []
 
         for col in columns:
             if col[0] == 'H':
@@ -68,12 +71,28 @@ class PasswordCollectionManager(object):
                 time1 = eventList[key1]['U']-eventList[key1]['D']
             if action == 'DD':
                 time1 =  eventList[key2]['D']-eventList[key1]['D']
+                times.append(time1)
             if action == 'UD':
                 time1 =  eventList[key2]['D']-eventList[key1]['U']
-
+                times.append(time1)
             #row[col]=time1
             row.append(time1)
+
+        median = np.median(times)
+
+        #усереднюєм значення в викидах
+        for i in range(0,len(row),3):
+            if row[i+1] > 0 and self.is_outlier(row[i+1], times, 3.) : row[i+1] = median
+            if row[i+2] > 0 and self.is_outlier(row[i+2], times, 3.) : row[i+2] = median
+
         return row
+
+    def is_outlier(self, x, data, m = 3.):
+        d = np.abs(data - np.median(data))
+        mdev = np.median(d)
+        return 1 if np.abs(x - np.median(data))/mdev > m else 0
+
+
 
     def userRecordData(self, eventList):
 
