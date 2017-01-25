@@ -28,17 +28,26 @@ class KE_GUI:
         self.username_entry.grid(column=2, row=1, sticky=(W, E))
         self.username_entry.bind("<FocusOut>", self.username_entered)
 
-        ttk.Label(self.mainframe, text='Пароль: ' + passwd).grid(column=2, row=2, sticky=(W,E))
+
+        ttk.Label(self.mainframe, text=passwd).grid(column=2, row=2, sticky=(W,E))
+
+        ttk.Label(self.mainframe, text='Пароль: ').grid(column=1, row=3, sticky=(W,E))
 
         self.passwd_v = StringVar()
-        self.pass_entry = ttk.Entry(self.mainframe, width=7, textvariable=self.passwd_v, state='enabled')
+        self.pass_entry = ttk.Entry(self.mainframe, width=12, textvariable=self.passwd_v, state='enabled')
         self.pass_entry.grid(column=2, row=3, sticky=(W, E))
 
         self.pass_entry.bind("<FocusIn>", self.pass_collect)
 
 
         self.status_v = StringVar()
-        ttk.Label(self.mainframe, textvariable=self.status_v).grid(column=3, row=6, sticky=(W,E))
+        ttk.Label(self.mainframe, textvariable=self.status_v).grid(column=2, row=7, sticky=(W,E))
+
+        self.status_dist = StringVar()
+        ttk.Label(self.mainframe, textvariable=self.status_dist).grid(column=2, row=8, sticky=(W))
+
+        self.status_tresh = StringVar()
+        ttk.Label(self.mainframe, textvariable=self.status_tresh).grid(column=2, row=9, sticky=(W))
 
         for child in self.mainframe.winfo_children(): child.grid_configure(padx=5, pady=5)
 

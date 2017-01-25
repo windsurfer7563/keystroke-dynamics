@@ -15,7 +15,7 @@ class AnomalyDetector(object):
     def __init__(self,currentUser,clf):
         self.user = currentUser
         self.clf_type=clf
-        self.clf={'NN': MLPRegressor(learning_rate_init=0.0001, max_iter=200000,
+        self.clf={'NN': MLPRegressor(learning_rate_init=0.0001, max_iter=200000, tol=0.0001, alpha=0.01,
                     hidden_layer_sizes=(20), verbose=True),
                   'SVM': OneClassSVM(kernel="rbf")
                  }[clf]
@@ -29,9 +29,6 @@ class AnomalyDetector(object):
         '''
 
 
-
-
-
     def fit(self):
         userFilePath = (os.path.join("accounts", self.user + '.csv'))
         #Read File
@@ -40,7 +37,6 @@ class AnomalyDetector(object):
         #навчаємо детектор -  в якості вектора результатів підсавляємо ветор X
         # навчаємо тільки на нормальних даних - біометрика паролей введених оригінальним користувачем
 
-        #print(data)
 
         self.scaler.fit(data)
         X_train = self.scaler.transform(data)
@@ -61,21 +57,17 @@ class AnomalyDetector(object):
             #print(X_train.shape)
             predicted=self.clf.predict(X_train)
 
-            np.seterr(all='warn')
-
-            self.VI = linalg.inv(np.cov(X_train,rowvar=False))
-
             for i in (range(X_train.shape[0])):
                   #dist_train.append(mahalanobis(predicted[i],X_train[i], self.VI))
                   dist_train.append(chebyshev(predicted[i],X_train[i]))
 
-            #print('Dist: {}'.format(dist_train))
+            print("Max Dist Train: {0:.4f}".format(max(dist_train)))
             self.treshold=np.mean(dist_train) + 3 * np.std(dist_train)
             print('Treshold: %.3f' % self.treshold)
 
         #serialization
         userFilePath =  (os.path.join("accounts", self.user + '_' + self.clf_type + '.dat'))
-        pickle.dump(self,open(userFilePath,"wb"))
+        pickle.dump(self, open(userFilePath,"wb"))
 
 
     def predict(self, keys_data):
@@ -96,6 +88,6 @@ class AnomalyDetector(object):
 
              print('Dist: %.3f, Treshold: %.3f' % (dist,self.treshold))
 
-         return {'NN': np.where(dist < self.treshold,0,1),
+         return ({'NN': np.where(dist < self.treshold,0,1),
                  'SVM': self.clf.predict(keys_data)
-                }[self.clf_type]
+                }[self.clf_type], dist, self.treshold)

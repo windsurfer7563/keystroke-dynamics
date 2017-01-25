@@ -24,5 +24,5 @@ def test_userRecordData():
     userFilePath = (os.path.join("accounts", 'testuser2.csv'))
     f = open(userFilePath)
     reader=csv.reader(f, delimiter=',')
-    assert len(next(reader)) == 30
+    assert len(next(reader)) == 33
     f.close()

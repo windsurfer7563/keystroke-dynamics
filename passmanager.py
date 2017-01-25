@@ -25,17 +25,36 @@ class PasswordCollectionManager(object):
         pass_len=len(passwd)
 
         for i in range(pass_len):
-            key = 'PERIOD' if passwd[i] == '.' else passwd[i]
+            key1 = passwd[i]
             key2 = passwd[i+1] if i != pass_len - 1 else 'Return'
-            columns.append('H.' + key)
-            columns.append('DD.' + key + '.' + key2)
-            columns.append('UD.' + key + '.' + key2)
+
+
+            if key2.isupper():
+                columns.append('H.' + key1)
+                columns.append('DD.' + key1 + '.SHIFT')
+                columns.append('UD.' + key1 + '.SHIFT')
+                key1 = 'SHIFT'
+
+            if key1 == '.':
+                key1 = 'PERIOD'
+            if key2 == '.':
+                key2 = 'PERIOD'
+
+
+
+            columns.append('H.' + key1)
+            columns.append('DD.' + key1 + '.' + key2)
+            columns.append('UD.' + key1 + '.' + key2)
+
         return columns
 
     def eventlist_transform(self,eventList):
-        columns=self.getColumns(self.passwd)
+        #print(eventList)
+        columns = self.getColumns(self.passwd)
+        #print(columns)
         key_transform = lambda x: x if x =='Return' else str.upper(x)
         row=[]
+
         for col in columns:
             if col[0] == 'H':
                 action, key1  = col.split('.')
@@ -95,9 +114,20 @@ class PasswordCollectionManager(object):
             row=self.eventlist_transform(eventList)
             data = np.array(row, dtype=np.float)
             userFilePath =  (os.path.join("accounts", self.user + '_' + 'NN'+'.dat'))
-            ad=pickle.load(open(userFilePath,"rb"))
-            predict = ad.predict(data)
-            self.wnd.status_v.set(predict)
+            try:
+                ad=pickle.load(open(userFilePath,"rb"))
+            except:
+                self.wnd.status_v.set("Детектор не знайдено")
+                return
+
+            predict, dist, tresh = ad.predict(data)
+            if not predict:
+                self.wnd.status_v.set("Доступ дозволено")
+            else:
+                self.wnd.status_v.set("Доступ заборонено")
+
+            self.wnd.status_dist.set("Dist: {0:.3f}".format(dist))
+            self.wnd.status_tresh.set("Treshold: {0:.3f}".format(tresh))
             self.wnd.passwd_v.set('')
             #self.password_evaluate()
             #self.wnd.pass_entry.focus()
@@ -138,14 +168,14 @@ class KeyLogger(object):
         return True
 
     def keyUpEvent(self, event):
-        self.storeEvent(event.Key,"U", event)
+        if event.Key != 'Return':
+            self.storeEvent(event.Key,"U", event)
         return True
 
 
     def mainLoop(self):
+        #    while not self.enterPressed:
         pythoncom.PumpWaitingMessages()
-            #while not self.enterPressed:
-            #    pythoncom.PumpWaitingMessages()
 
     def storeEvent(self, key, activity, event):
         global hookManager
@@ -154,15 +184,17 @@ class KeyLogger(object):
         if key == 'Oem_Period':
             key = 'PERIOD'
 
+        if key == 'Lshift' or key == 'Rshift':
+            key = 'SHIFT'
+
         if key in self.eventList:
             self.eventList[key].update({activity: int(keystrokeTime)})
         else:
             self.eventList[key] = {activity: int(keystrokeTime)}
 
-        # Chosen to use Escape key (ESC) due to input using a similar method
-        # Enter Key - KeyCode: 13 Ascii: 13 ScanCode: 28 - ESC = 27 @ Ascii
-        if event.Ascii == 13 and activity == "D":
-            self.enterPressed = True
+        if key == 'Return':
+            #print('Enter pressed')
+            #self.enterPressed = True
             #hookManager.UnhookKeyboard()
             events = self.eventList
             self.eventList={}

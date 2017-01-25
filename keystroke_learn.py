@@ -89,13 +89,13 @@ class KL_GUI:
         self.pass_entry.grid(column=2, row=6, sticky=(W, E))
 
         self.status_v = StringVar()
-        ttk.Label(self.mainframe, textvariable=self.status_v).grid(column=3, row=6, sticky=(W,E))
+        ttk.Label(self.mainframe, textvariable=self.status_v).grid(column=2, row=7, sticky=(W,E))
 
         self.fit_button = ttk.Button(self.mainframe,text='Навчання детектора',command = (lambda: self.fit_detector()))
-        self.fit_button.grid(column=2, row=7, sticky=(W, E))
+        self.fit_button.grid(column=2, row=8, sticky=(W, E))
 
         self.status2_v = StringVar()
-        ttk.Label(self.mainframe, textvariable=self.status2_v).grid(column=3, row=7, sticky=(W,E))
+        ttk.Label(self.mainframe, textvariable=self.status2_v).grid(column=3, row=9, sticky=(W,E))
 
 
         ttk.Button(self.mainframe,text='Quit',command=(lambda: self.master.quit())).grid(column=3, row=8, sticky=E)
@@ -121,9 +121,9 @@ class KL_GUI:
 
     def pass_collect(self):
         self.pass_entry.state(['!disabled'])
-        self.pass_entry.focus()
         self.passwd_v.set('')
         self.status_v.set('')
+        self.pass_entry.focus()
         self.pc.password_collect()
 
     def fit_detector(self):
