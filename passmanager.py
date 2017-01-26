@@ -120,7 +120,6 @@ class PasswordCollectionManager(object):
 
     def userPassEvaluate(self, eventList):
         if self.wnd.passwd_v.get() != self.passwd:
-            print(self.wnd.passwd_v.get())
             self.wnd.status_v.set("Невірний пароль!")
             self.wnd.passwd_v.set('')
             #self.wnd.username_entry.focus()
@@ -132,6 +131,8 @@ class PasswordCollectionManager(object):
             self.wnd.passwd_v.set('')
             row=self.eventlist_transform(eventList)
             data = np.array(row, dtype=np.float)
+            #print(row)
+            #print(data)
             userFilePath =  (os.path.join("accounts", self.user + '_' + 'NN'+'.dat'))
             try:
                 ad=pickle.load(open(userFilePath,"rb"))
