@@ -3,7 +3,7 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.svm import OneClassSVM
 from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import StandardScaler
-from scipy.spatial.distance import *
+from scipy.spatial.distance import euclidean
 from scipy.spatial.distance import chebyshev
 from scipy.spatial.distance import mahalanobis
 from scipy import linalg
