@@ -5,13 +5,21 @@ import csv
 import pandas as pd
 import numpy as np
 import pickle
-
-
+import socket
+import sys
+import re
 
 class PasswordCollectionManager(object):
     def __init__(self, passwd, wnd):
         self.passwd = passwd
         self.wnd = wnd
+        #current_path=os.path.dirname(os.path.abspath(__file__))
+        current_path = current_path=os.path.abspath(os.curdir)
+        iniFileName = os.path.join(current_path, 'keystroke.ini')
+        textFile = open(iniFileName,'r')
+        host = re.findall(r'HOST=(.*)', textFile.read())
+        self._HOST = host[0].strip()
+        self._PORT = 9999
         pass
 
     def change_user(self,current_user):
@@ -122,25 +130,38 @@ class PasswordCollectionManager(object):
         if self.wnd.passwd_v.get() != self.passwd:
             self.wnd.status_v.set("Невірний пароль!")
             self.wnd.passwd_v.set('')
-            #self.wnd.username_entry.focus()
-            #self.wnd.pass_entry.focus()
-            #self.password_evaluate()
-            #self.wnd.username_entry.focus()
+
         else:
-            #print(eventList)
             self.wnd.passwd_v.set('')
             row=self.eventlist_transform(eventList)
             data = np.array(row, dtype=np.float)
-            #print(row)
-            #print(data)
-            userFilePath =  (os.path.join("accounts", self.user + '_' + 'NN'+'.dat'))
+
+            request = {'user': self.user, 'data': data}
+
+            request_string=pickle.dumps(request)
+
+
+
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
             try:
-                ad=pickle.load(open(userFilePath,"rb"))
+                # Connect to server and send data
+                sock.connect((self._HOST,self._PORT))
+                sock.sendall(request_string)
+
+                # Receive data from the server and shut down
+                received_string = sock.recv(1024)
+                predict, dist, tresh = pickle.loads(received_string)
             except:
+                self.wnd.status_v.set("Помилка з'єднання з сервером")
+                return
+            finally:
+                sock.close()
+
+            if predict and dist == 0:
                 self.wnd.status_v.set("Детектор не знайдено")
                 return
 
-            predict, dist, tresh = ad.predict(data)
             if not predict:
                 self.wnd.status_v.set("Доступ дозволено")
             else:
@@ -149,9 +170,6 @@ class PasswordCollectionManager(object):
             self.wnd.status_dist.set("Dist: {0:.3f}".format(dist))
             self.wnd.status_tresh.set("Treshold: {0:.3f}".format(tresh))
             self.wnd.passwd_v.set('')
-            #self.password_evaluate()
-            #self.wnd.pass_entry.focus()
-            #self.wnd.username_entry.focus()
 
     def password_collect(self):
         global hookManager
